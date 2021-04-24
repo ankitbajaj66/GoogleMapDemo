@@ -3,10 +3,15 @@ package com.example.googleappdemo
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.location.Address
+import android.location.Geocoder
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -39,6 +44,41 @@ class MapActivity : AppCompatActivity() {
         getLocationPermission()
     }
 
+    private fun initViews() {
+        input_search.setOnEditorActionListener { v, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.KEYCODE_ENTER) {
+                geoLocate()
+            }
+
+            return@setOnEditorActionListener false
+        }
+    }
+
+    private fun geoLocate() {
+        Log.i(TAG_MapActivity, "geoLocate..........")
+
+        val searchText = input_search.text.toString()
+        val geocoder = Geocoder(this)
+
+        var list: List<Address>? = null
+
+        try {
+            list = geocoder.getFromLocationName(searchText, 1)
+
+        } catch (exception: Exception) {
+            Log.i(TAG_MapActivity, "geoLocate..........exception")
+        }
+
+        list?.let { list ->
+            if (list.isNotEmpty()) {
+                val address = list.get(0)
+                Log.i(TAG_MapActivity, "==========location is : ${address.toString()}")
+                val latLong = LatLng(address.latitude, address.longitude)
+                showCamera(latLong, 15f)
+            }
+        }
+    }
+
     private fun initMap() {
         (map as SupportMapFragment).getMapAsync(object : OnMapReadyCallback {
             @SuppressLint("MissingPermission")
@@ -50,7 +90,13 @@ class MapActivity : AppCompatActivity() {
                 if (isPermissionGranted) {
                     getDeviceLocation()
 
-                    googleMap?.isMyLocationEnabled = true 
+                    googleMap?.let {
+                        it.isMyLocationEnabled = true
+                        it.uiSettings.isMyLocationButtonEnabled = false
+
+                        initViews()
+                    }
+
                 }
             }
         })
@@ -97,9 +143,8 @@ class MapActivity : AppCompatActivity() {
                     }
                 }
             }
-        } catch (exception: Exception) {
+        } catch (securityException: SecurityException) {
         }
-
     }
 
     private fun showCamera(latlong: LatLng, zoom: Float) {
